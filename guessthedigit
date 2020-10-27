@@ -1,0 +1,221 @@
+MOV R5, #4H		;Counter for program flow control
+call setMessage1
+JMP LCD_Display
+
+start: 
+ 	MOV R0, #0 
+; scan row0 	 	; clear R0 - the first key is key0 
+ 	SETB P0.3 	 	; set row3 
+ 	CLR P0.0 	 	; clear row0 
+ 	CALL colScan 	; call column-scan subroutine 
+ 	JB F0, finish 	; | if F0 is set, jump to end of program  
+ 	 	 	 		; | (because the pressed key was found and its number  
+ 	 	 
+; scan row1 	 	; is in R0) 
+ 	SETB P0.0 	 	; set row0 
+ 	CLR P0.1 	 	; clear row1 
+ 	CALL colScan 	; call column-scan subroutine 
+ 	JB F0, finish 	; | if F0 is set, jump to end of program  
+ 	 	 	 		; | (because the pressed key was found and its number 
+ 	 	 
+; scan row2 	 	; is in R0) 
+ 	SETB P0.1 	 	; set row1 
+ 	CLR P0.2 	 	; clear row2 
+ 	CALL colScan  	; call column-scan subroutine 
+ 	JB F0, finish  	; | if F0 is set, jump to end of program   	 	 	 	
+					; | (because the pressed key was found and its number  is in R0) 
+; scan row3 
+ 	SETB P0.2 	 	; set row2 
+ 	CLR P0.3 	 	; clear row3 
+ 	CALL colScan  	; call column-scan subroutine 
+ 	JB F0, finish  	; | if F0 is set, jump to end of program   	 	 	 	; | (because the pressed key was found and its number 
+ 	 	 	 		; is in R0) 
+ 	JMP start 	 	; | go back to scan row 0 
+ 	 	 	 		; | (this is why row3 is set at the start of the 
+ 	 	 	 		; program 
+ 	 	 	 		; | - when the program jumps back to start, row3 has  
+ 	 	 	 		; just been scanned) 
+
+finish: ; program execution arrives here when key is found
+	POP 1H
+	MOV R3,1H
+	CJNE R3,#03H, gameOver 	;last digit 
+	MOV R3,1H
+ 	POP 1H 	 	 			
+	CJNE R3,#11, gameOver	;2nd last digit
+	MOV R3,1H
+ 	POP 1H 	 	 			
+	CJNE R3,#05, gameOver	;3rd last digit
+	MOV R3,1H
+ 	POP 1H 	 	 			
+	CJNE R3,#02, gameOver	;4th last digit
+	CALL setMessage3
+	JMP LCD_Display
+						
+
+					 ; column-scan subroutine 
+colScan:
+	JB F0, finish 
+ 	JNB P0.4, gotKey ; if col0 is cleared - key found 
+ 	INC R0  	 	 ; otherwise move to next key 
+ 	JNB P0.5, gotKey ; if col1 is cleared - key found 
+ 	INC R0  	 	 ; otherwise move to next key 
+ 	JNB P0.6, gotKey ; if col2 is cleared - key found 
+ 	INC R0  	 	 ; otherwise move to next key 
+ 	RET 	 	 	 ; return from subroutine - key not found 
+gotKey:
+	JB F0, finish 
+	MOV B,R0		
+	PUSH B			 ;store value in stack
+	DJNZ R6, start
+ 	SETB F0   	 	 ; key found - set F0
+ 	JMP start		 ; and return from subroutine 
+
+gameOver:
+	call setMessage6
+	JMP LCD_Display
+	
+LCD_Display:
+MOV A,#0
+
+MOV 20H, #'W'
+MOV 21H, #'E'
+MOV 22H, #'L'
+MOV 23H, #'C'
+MOV 24H, #'O' 
+MOV 25H, #'M'
+MOV 26H, #'E'
+MOV 27H, #0 ;end of data marker START
+
+MOV 30H, #'F'
+MOV 31H, #'A'
+MOV 32H, #'I'
+MOV 33H, #'L'
+MOV 34H, #'E' 
+MOV 35H, #'D'
+MOV 36H, #0 ;end of data marker START
+
+
+
+;initializing the display
+CLR P1.3;clear pin RS to select register (0-instruction register for write and busy flag: address counter for read)
+;indicate that instructions are being sent to the module
+;function set
+CLR P1.7 
+CLR P1.6 
+SETB P1.5 
+CLR P1.4 ; | high nibble set
+SETB P1.2 
+CLR P1.2 ; | negative edge on E
+CALL delay ; wait for BF to clear
+; function set sent for first time - tells module to
+; go into 4-bit mode
+SETB P1.2 ; |
+CLR P1.2 ; | negative edge on E
+; same function set high nibble sent a second time
+SETB P1.7 ; low nibble set (only P1.7 needed to be changed)
+SETB P1.2 ; |
+CLR P1.2 ; | negative edge on E
+; function set low nibble sent
+CALL delay ; wait for BF to clear
+; entry mode set
+; set to increment with no shift
+CLR P1.7 ; |
+CLR P1.6 ; |
+CLR P1.5 ; |
+CLR P1.4 ; | high nibble set
+SETB P1.2 ; |
+
+CLR P1.2 ; | negative edge on E
+SETB P1.6 ; |
+SETB P1.5 ; |low nibble set
+SETB P1.2 ; |
+CLR P1.2 ; | negative edge on E
+CALL delay ; wait for BF to clear
+; display on/off control
+; the display is turned on, the cursor is turned on and blinking is turned on
+CLR P1.7 ; |
+CLR P1.6 ; |
+CLR P1.5 ; |
+CLR P1.4 ; | high nibble set
+SETB P1.2 ; |
+CLR P1.2 ; | negative edge on E
+SETB P1.7 ; |
+SETB P1.6 ; |
+SETB P1.5 ; |
+SETB P1.4 ; | low nibble set
+SETB P1.2 ; |
+CLR P1.2 ; | negative edge on E
+CALL delay ; wait for BF to clear
+; send data
+SETB P1.3 ; clear RS - indicates that data is being sent to
+; module
+
+loop:
+MOV A, @R1 ; move data pointed to by R1 to A
+JZ finishLCD ; if A is 0, then end of data has been reached ? jump
+; out of loop
+CALL sendCharacter ; send data in A to LCD module
+INC R1 ; point to next piece of data
+JMP loop ; repeat
+
+finishLCD:
+CLR P1.3
+CLR P1.7 ; |
+CLR P1.6 ; |
+CLR P1.5 ; |
+CLR P1.4 ; | high nibble set
+SETB P1.2 ; |
+CLR P1.2 ; | negative edge on E
+SETB P1.4 ;set to clear the display
+SETB P1.2 ; |
+CLR P1.2 ; | negative edge on E
+CALL delay2 ; wait for BF to clear
+SETB P1.3
+JMP start
+
+sendCharacter:
+MOV C, ACC.7 ; |
+MOV P1.7, C ; |
+MOV C, ACC.6 ; |
+MOV P1.6, C ; |
+MOV C, ACC.5 ; |
+MOV P1.5, C ; |
+MOV C, ACC.4 ; |
+MOV P1.4, C ; | high nibble set
+SETB P1.2 ; |
+CLR P1.2 ; | negative edge on E
+
+MOV C, ACC.3 ; |
+MOV P1.7, C ; |
+MOV C, ACC.2 ; |
+MOV P1.6, C ; |
+MOV C, ACC.1 ; |
+MOV P1.5, C ; |
+MOV C, ACC.0 ; |
+MOV P1.4, C ; | low nibble set
+SETB P1.2 ; |
+CLR P1.2 ; | negative edge on E
+CALL delay ; wait for BF to clear
+
+delay:
+MOV R0, #70
+DJNZ R0, $
+RET
+
+delay2:
+MOV R0, #5000
+DJNZ R0, $
+RET
+
+
+setMessage1:
+MOV R1, #20H ; data to be sent to LCD is stored in 8051 RAM,
+; starting at location 2
+RET
+
+setMessage1:
+MOV R1, #30H ; data to be sent to LCD is stored in 8051 RAM,
+; starting at location 2
+RET
+	
